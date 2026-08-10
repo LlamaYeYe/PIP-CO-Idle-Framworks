@@ -1,27 +1,28 @@
-# PIP-CO Idle Frameworks
+PIP-CO Idle Framworks V1.0.0 is a lightweight idle and screensaver framework for the Wand Company Pip-Boy 3000.
 
-PIP-CO Idle Frameworks for The Wand Company Pip-Boy 3000.
+The holotape works independently on its own. If Mesmetron 3000A is also installed, PIP-CO automatically detects it and adds Mesmetron’s available screensavers to the Idle Frameworks menu without modifying Mesmetron itself.
 
-## V23.54
+Mesmetron screensavers can be launched through manual previews or automatically after the built-in 2-minute idle timer. Screensavers run fullscreen and return cleanly to the Pip-Boy interface when exited or awakened.
 
-This package preserves the compact V23.49 lazy-loaded Mesmetron architecture and the V23.54 native-page wake fix.
+The framework uses a compact, lazy-loaded MESIDLE.JS runner to help keep memory usage low and maintain smooth operation.
 
-### Current behavior
+Features
+Independent PIP-CO idle framework
+Automatic Mesmetron 3000A detection
+Dynamic Mesmetron screensaver discovery
+Screensaver previews
+Individual Enable/Disable controls
+2-minute automatic idle activation
+Fullscreen screensaver playback
+Button and control wake/exit support
+Lightweight lazy-loaded architecture
+Mesmetron files remain untouched
+Mesmetron Controls
 
-- Built-in PIP-BOY 3000 idle screensaver support.
-- Optional Mesmetron screensavers are discovered from Mesmetron when installed.
-- Mesmetron previews are intentionally disabled.
-- Mesmetron screensavers run through the real 2-minute idle trigger.
-- The underlying Pip-Boy page is suspended before a Mesmetron idle starts so native UI does not show through.
-- On wake, the native page is freshly reloaded instead of restoring an already-removed page object.
-- Mesmetron itself is not modified.
+Mesmetron includes additional interactive controls for many screensavers. For example, Knob 2 can change speed or other saver-specific modes, such as Speed 1, 2, or 3.
 
-## Installation
+These Mesmetron-specific controls are not currently implemented inside PIP-CO Idle Framworks. PIP-CO focuses on previewing and using Mesmetron screensavers as idle animations.
 
-The website/installer should install the files in `assets/` to:
+For the full interactive Mesmetron experience and its additional controls, open the Mesmetron 3000A holotape directly.
 
-`HOLO/FALLOUT_SCREENSAVER/`
-
-Mesmetron remains a separate optional installation under:
-
-`HOLO/MESMETRON/`
+PIP-CO and Mesmetron remain independent, making both easy to use and update separately.

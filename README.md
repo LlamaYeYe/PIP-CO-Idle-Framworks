@@ -82,7 +82,7 @@ The integration does not bundle or rewrite Mesmetron or Pipquarium renderer
 assets. Each provider remains independently installable.
 not a PIP-CO LOW_MEMORY failure.
 
-## CREDITS!!!!!|
+## CREDITS!!!!!
 
 Thankyou towards AidansLab -> https://github.com/AidansLab
 Thankyou towards Theeohn -> https://github.com/Theeohn

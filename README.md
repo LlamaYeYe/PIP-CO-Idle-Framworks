@@ -76,33 +76,8 @@ added automatically.
 
 Only one idle provider is active at a time.
 
-## Low-memory architecture
-
-The runtime is split so the main menu, persistent idle service, built-in bomb
-renderer, Mesmetron adapter, Pipquarium adapter, and fullscreen runner are
-separate files.
-
-Heavy renderer code is loaded only when needed. This avoids keeping provider
-renderers in the main menu's memory scope and improves repeated
-preview/idle/wake/reopen stability on the memory-constrained Pip-Boy.
-
 ## Compatibility
 
 The integration does not bundle or rewrite Mesmetron or Pipquarium renderer
 assets. Each provider remains independently installable.
-
-PIP-CO does not replace `Pip.audioStart`, `Pip.bootAnimation`, `Pip.CURRENT`,
-or `Pip.blitOptions`.
-
-## Hardware validation
-
-The REWRITE2I architecture was hardware-tested with:
-
-- the built-in PIP-BOY 3000 idle
-- Mesmetron detection, previews, automatic idle, and wake/exit
-- Pipquarium detection, preview, automatic idle, and wake/exit
-- provider uninstall detection
-- repeated navigation and reopening without the earlier LOW MEMORY crash
-
-The known Mesmetron Spiral JIT warning originates in the Spiral renderer and is
 not a PIP-CO LOW_MEMORY failure.

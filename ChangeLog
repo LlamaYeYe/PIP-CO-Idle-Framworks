@@ -1,0 +1,4 @@
+1.0.0
+https://github.com/CodyTolene/pip-boy-3000-holotapes/pull/84
+- Initial release
+- Stabilized background idle input ownership: persistent service no longer registers knob1/knob2 callbacks

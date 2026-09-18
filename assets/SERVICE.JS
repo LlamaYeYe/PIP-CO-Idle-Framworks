@@ -1,236 +1,167 @@
-(function(config,fs,basePath,mesmetronPath,pipquariumPath,pipquariumSentinel,log){
-let previousService=global.__PipCoIdleService;
+(function() {
+  const fs = require("fs"),
+    basePath = "HOLO/FALLOUT_SCREENSAVER/",
+    mesmetronPath = "HOLO/MESMETRON/";
 
-if(previousService&&previousService.version==="rewrite2j"){
-  previousService.enabled=config.enabled?1:0;
-  previousService.providerEnabled=config.mesEnabled?1:0;
-  previousService.providerFile=config.mesFile||"";
-  previousService.last=getTime();
-  previousService.detachInputs();
-  return previousService;
-}
+  let existingService = global.__PipCoIdleService,
+    returnToMenuTimer = 0;
 
-if(previousService){
-  try{
-    if(typeof previousService.destroy==="function")previousService.destroy();
-  }catch(e){}
-  delete global.__PipCoIdleService;
-}
+  function ignoreError(message) {}
 
-let idleService={
-  version:"rewrite2j",
-  enabled:config.enabled?1:0,
-  providerEnabled:config.mesEnabled?1:0,
-  providerFile:config.mesFile||"",
-  last:getTime(),
-  active:0,
-  preview:0,
-  previewFile:"",
-  runner:0,
-  tick:undefined,
-  run:undefined,
-  inputsOn:0,
-  claimInputs:undefined
-};
-
-function radioActive(){
-  try{
-    if(Pip.radioOn)return 1;
-    if(global.__PipRadioActive)return 1;
-    if(Pip.audioIsPlaying&&Pip.audioIsPlaying())return 1;
-    if(Pip.streamPlaying){
-      let streamType=Pip.streamPlaying();
-      if(streamType==="audio"||streamType==="both")return 1;
+  function loadConfig() {
+    try {
+      let savedConfig = JSON.parse(fs.readFileSync(basePath + "CONFIG.JSON"));
+      return {
+        enabled: savedConfig.enabled ? 1 : 0,
+        providerEnabled: savedConfig.mesEnabled ? 1 : 0,
+        providerFile: savedConfig.mesFile || ""
+      };
+    } catch (error) {
+      return { enabled: 0, providerEnabled: 0, providerFile: "" };
     }
-  }catch(e){}
-  return 0;
-}
-
-function recordActivity(){
-  idleService.last=getTime();
-}
-
-function detachInputs(){
-  /* removeListener may remove one matching registration at a time.
-     Repeat defensively so an older duplicate cannot survive into an
-     exclusive foreground owner. */
-  for(let i=0;i<3;i++){
-    Pip.removeListener("menuX",recordActivity);
-    Pip.removeListener("STATS",recordActivity);
-    Pip.removeListener("ITEMS",recordActivity);
-    Pip.removeListener("DATA",recordActivity);
-  }
-  idleService.inputsOn=0;
-}
-
-function attachInputs(){
-  detachInputs();
-  Pip.on("menuX",recordActivity);
-  Pip.on("STATS",recordActivity);
-  Pip.on("ITEMS",recordActivity);
-  Pip.on("DATA",recordActivity);
-  idleService.inputsOn=1;
-}
-
-function stop(redraw){
-  let renderer=idleService.run;
-  idleService.run=undefined;
-
-  if(renderer&&typeof renderer.stop==="function"){
-    try{renderer.stop();}catch(e){log("renderer stop failed: "+e);}
   }
 
-  idleService.active=0;
-  idleService.preview=0;
-  idleService.previewFile="";
-  idleService.last=getTime();
-  E.defrag();
-
-  if(redraw&&!idleService.runner){
-    setTimeout(function(){
-      try{Pip.changeMenu();}catch(e){log("redraw failed: "+e);}
-    },0);
-  }
-}
-
-function loadRunner(fileName,argumentsList){
-  let runnerFactory;
-  E.defrag();
-
-  try{
-    runnerFactory=eval(fs.readFileSync(basePath+fileName));
-  }catch(e){
-    log(fileName+" load failed: "+e);
-    return;
-  }
-
-  try{
-    return runnerFactory.apply(undefined,argumentsList);
-  }catch(e){
-    log(fileName+" start failed: "+e);
-  }
-}
-
-function play(preview){
-  if(idleService.active||(!preview&&!idleService.enabled))return;
-
-  idleService.preview=preview?1:0;
-  idleService.active=1;
-  idleService.run=loadRunner(
-    "BOMBRUN.JS",
-    [idleService,fs,basePath,log,radioActive()]
-  );
-
-  if(!idleService.run){
-    idleService.active=0;
-    idleService.preview=0;
-    idleService.last=getTime();
-    E.defrag();
-  }
-}
-
-function playProvider(preview,fileName){
-  if(idleService.active)return;
-
-  if(preview){
-    if(!fileName)return;
-    idleService.preview=1;
-    idleService.previewFile=fileName;
-  }else{
-    if(!idleService.providerEnabled||!idleService.providerFile)return;
-    idleService.preview=0;
-    idleService.previewFile="";
-    fileName=idleService.providerFile;
-  }
-
-  idleService.active=1;
-  if(fileName===pipquariumSentinel){
-    idleService.run=loadRunner(
-      "PIPQIDLE.JS",
-      [idleService,fs,pipquariumPath,log]
-    );
-  }else{
-    idleService.run=loadRunner(
-      "MESIDLE.JS",
-      [idleService,mesmetronPath,fs,h,log,fileName]
-    );
-  }
-
-  if(!idleService.run){
-    idleService.active=0;
-    idleService.preview=0;
-    idleService.previewFile="";
-    idleService.last=getTime();
-    E.defrag();
-  }
-}
-
-function launchFullscreenRunner(){
-  if(idleService.active||idleService.runner)return;
-
-  idleService.runner=1;
-  detachInputs();
-
-  setTimeout(function(){
-    try{
-      if(typeof Pip.loadHolotape!=="function"){
-        throw new Error("Pip.loadHolotape unavailable");
+  function audioAlreadyActive() {
+    try {
+      if (Pip.radioOn || global.__PipRadioActive) return 1;
+      if (Pip.audioIsPlaying && Pip.audioIsPlaying()) return 1;
+      if (Pip.streamPlaying) {
+        let streamType = Pip.streamPlaying();
+        if (streamType === "audio" || streamType === "both") return 1;
       }
-      Pip.loadHolotape(basePath+"IDLE.JS");
-    }catch(e){
-      log("runner load failed: "+e);
-      idleService.runner=0;
-      idleService.last=getTime();
-      attachInputs();
+    } catch (error) {
+      ignoreError("audio-state check failed: " + error);
+      return 1;
     }
-  },0);
-}
-
-function destroy(){
-  stop(0);
-  if(idleService.tick){
-    clearInterval(idleService.tick);
-    idleService.tick=undefined;
-  }
-  detachInputs();
-  idleService.claimInputs=undefined;
-  delete global.__PipCoIdleService;
-}
-
-idleService.stop=stop;
-idleService.play=play;
-idleService.playProvider=playProvider;
-idleService.launchRunner=launchFullscreenRunner;
-idleService.attachInputs=attachInputs;
-idleService.detachInputs=detachInputs;
-idleService.destroy=destroy;
-
-global.__PipCoIdleService=idleService;
-
-idleService.tick=setInterval(function(){
-  if(Pip.sleeping){
-    idleService.last=getTime();
-    return;
+    return 0;
   }
 
-  if(Pip.menuChanging)return;
-
-  try{
-    if(Pip.MODE===2&&Pip.MENUX===0){
-      idleService.last=getTime();
-      return;
+  function loadRenderer(fileName, args) {
+    let sourceCode = 0,
+      rendererFactory = 0,
+      renderer = 0;
+    process.memory(true);
+    E.defrag();
+    try {
+      sourceCode = fs.readFileSync(basePath + fileName);
+      rendererFactory = eval(sourceCode);
+      sourceCode = 0;
+      renderer = rendererFactory.apply(undefined, args);
+      rendererFactory = 0;
+      process.memory(true);
+      return renderer;
+    } catch (error) {
+      sourceCode = rendererFactory = 0;
+      ignoreError(fileName + " load/start failed: " + error);
+      process.memory(true);
+      return 0;
     }
-  }catch(e){}
-
-  if(
-    !idleService.active &&
-    !idleService.runner &&
-    (idleService.enabled||idleService.providerEnabled) &&
-    getTime()-idleService.last>=120
-  ){
-    launchFullscreenRunner();
   }
-},1000);
 
-return idleService;
-})
+  function stopRenderer(returnToMenu) {
+    let renderer = service.run;
+    service.run = undefined;
+    if (renderer && renderer.stop) {
+      try {
+        renderer.stop();
+      } catch (error) {
+        ignoreError("renderer stop failed: " + error);
+      }
+    }
+    renderer = 0;
+    service.active = 0;
+    service.preview = 0;
+    service.last = getTime();
+    process.memory(true);
+    E.defrag();
+    if (returnToMenu && !service.runner) {
+      if (returnToMenuTimer) clearTimeout(returnToMenuTimer);
+      returnToMenuTimer = setTimeout(function() {
+        returnToMenuTimer = 0;
+        try {
+          Pip.changeMenu();
+        } catch (error) {
+          ignoreError("menu return failed: " + error);
+        }
+      }, 0);
+    }
+  }
+
+  function playBuiltIn(preview) {
+    if (service.active || (!preview && !service.enabled)) return;
+    service.preview = preview ? 1 : 0;
+    service.active = 1;
+    service.run = loadRenderer("BOMBRUN.JS", [service, fs, basePath, logError, audioAlreadyActive()]);
+    if (!service.run) {
+      service.active = 0;
+      service.preview = 0;
+      service.last = getTime();
+      E.defrag();
+    }
+  }
+
+  function playProvider(preview, fileName) {
+    if (service.active) return;
+    if (preview) {
+      if (!fileName) return;
+      service.preview = 1;
+    } else {
+      if (!service.providerEnabled || !service.providerFile) return;
+      service.preview = 0;
+      fileName = service.providerFile;
+    }
+
+    if (fileName === "@PIPQUARIUM") return;
+    service.active = 1;
+    service.run = loadRenderer("MESIDLE.JS", [service, mesmetronPath, fs, logError, fileName]);
+    if (!service.run) {
+      service.active = 0;
+      service.preview = 0;
+      service.last = getTime();
+      E.defrag();
+    }
+  }
+
+  function destroyService() {
+    if (returnToMenuTimer) {
+      clearTimeout(returnToMenuTimer);
+      returnToMenuTimer = 0;
+    }
+    if (service.active) stopRenderer(0);
+    service.claimInputs = undefined;
+    service.run = undefined;
+    if (global.__PipCoIdleService === service) global.__PipCoIdleService = undefined;
+    process.memory(true);
+    E.defrag();
+  }
+
+  if (existingService && existingService.destroy) {
+    try {
+      existingService.destroy();
+    } catch (error) {
+      ignoreError("existing service cleanup failed: " + error);
+    }
+  }
+  existingService = undefined;
+
+  let savedConfig = loadConfig();
+  const service = {
+    version: "1.2.0",
+    enabled: savedConfig.enabled,
+    providerEnabled: savedConfig.providerEnabled,
+    providerFile: savedConfig.providerFile,
+    last: getTime(),
+    active: 0,
+    preview: 0,
+    runner: 0,
+    run: undefined,
+    claimInputs: undefined,
+    stop: stopRenderer,
+    play: playBuiltIn,
+    playProvider: playProvider,
+    destroy: destroyService
+  };
+  savedConfig = undefined;
+  global.__PipCoIdleService = service;
+  return service;
+});

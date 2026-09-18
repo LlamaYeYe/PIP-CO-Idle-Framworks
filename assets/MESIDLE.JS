@@ -1,73 +1,63 @@
-(function(idleService,mesmetronPath,fs,h,log,fileName){
-let mesmetronModule,frameTimer;
+(function(idleService, mesmetronPath, fs, ignoreError, fileName) {
+  let sourceCode = 0,
+    mesmetronFactory = 0,
+    mesmetronModule,
+    frameTimer = 0;
 
-idleService.detachInputs();
-E.defrag();
-
-try{
-  mesmetronModule=eval(fs.readFileSync(mesmetronPath+fileName))();
-
-  if(
-    !mesmetronModule ||
-    typeof mesmetronModule.init!=="function" ||
-    typeof mesmetronModule.draw!=="function"
-  ){
-    throw new Error("Invalid Mesmetron module: "+fileName);
-  }
-
-  mesmetronModule.init(0);
-
-  /* Mesmetron modules use remove() here only to unregister their native knob
-     handlers. Their renderer state remains alive while PIP-CO owns wake/exit. */
-  if(typeof mesmetronModule.remove==="function")mesmetronModule.remove();
-
-  if(idleService.preview&&idleService.claimInputs){
-    idleService.claimInputs();
-  }
-
-  h.reset().setClipRect(0,0,479,319).clear();
-}catch(e){
-  log("Mesmetron "+fileName+" failed: "+e);
-  try{
-    if(mesmetronModule&&typeof mesmetronModule.remove==="function"){
-      mesmetronModule.remove();
-    }
-  }catch(cleanupError){}
-  mesmetronModule=undefined;
-  return;
-}
-
-function drawFrame(){"ram";
-  if(!idleService.active||!mesmetronModule)return;
-
-  try{
-    mesmetronModule.draw(h);
-    h.flip();
-    Pip.lastFlip=getTime();
-  }catch(e){
-    log("Mesmetron draw failed: "+e);
-    idleService.stop(1);
-  }
-}
-
-drawFrame();
-frameTimer=setInterval(drawFrame,40);
-
-return{
-  stop:function(){
-    if(frameTimer){
+  function removeMesmetron() {
+    if (frameTimer) {
       clearInterval(frameTimer);
-      frameTimer=undefined;
+      frameTimer = 0;
     }
-
-    try{
-      if(mesmetronModule&&typeof mesmetronModule.remove==="function"){
+    if (mesmetronModule && typeof mesmetronModule.remove === "function") {
+      try {
         mesmetronModule.remove();
+      } catch (error) {
+        ignoreError("Mesmetron cleanup failed: " + error);
       }
-    }catch(e){}
-
-    mesmetronModule=undefined;
-    h.reset().setClipRect(0,0,479,319);
+    }
+    mesmetronModule = undefined;
+    h.reset().setClipRect(0, 0, 479, 319);
+    process.memory(true);
+    E.defrag();
   }
-};
-})
+
+  function drawFrame() {
+    "ram";
+    if (!idleService.active || !mesmetronModule) return;
+    try {
+      mesmetronModule.draw(h);
+      h.flip();
+      Pip.lastFlip = getTime();
+    } catch (error) {
+      ignoreError("Mesmetron draw failed: " + error);
+      idleService.stop(1);
+    }
+  }
+
+  process.memory(true);
+  E.defrag();
+  try {
+    sourceCode = fs.readFileSync(mesmetronPath + fileName);
+    mesmetronFactory = eval(sourceCode);
+    sourceCode = 0;
+    mesmetronModule = mesmetronFactory();
+    mesmetronFactory = 0;
+    if (!mesmetronModule || typeof mesmetronModule.init !== "function" || typeof mesmetronModule.draw !== "function") {
+      throw new Error("Invalid Mesmetron module: " + fileName);
+    }
+    mesmetronModule.init(0);
+    if (typeof mesmetronModule.remove === "function") mesmetronModule.remove();
+    if (idleService.preview && idleService.claimInputs) idleService.claimInputs();
+    h.reset().setClipRect(0, 0, 479, 319).clear();
+  } catch (error) {
+    sourceCode = mesmetronFactory = 0;
+    ignoreError("Mesmetron " + fileName + " failed: " + error);
+    removeMesmetron();
+    return;
+  }
+
+  drawFrame();
+  frameTimer = setInterval(drawFrame, 40);
+  return { stop: removeMesmetron };
+});

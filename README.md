@@ -44,4 +44,3 @@ The framework uses deferred/lazy loading so the full screensaver system does not
 * **Left wheel — Rotate:** Move selection
 * **Left wheel — Press:** Select, toggle, Preview, or Back
 * **Either wheel during an active preview/screensaver:** Exit the idle animation
-
